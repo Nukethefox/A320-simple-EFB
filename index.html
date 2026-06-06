@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A320 Simple EFB</title>
+    <style>
+        :root {
+            --bg-main: #121212;
+            --bg-panel: #1a1a1a;
+            --bg-input: #2d2d2d;
+            --text-main: #ffffff;
+            --text-muted: #aaaaaa;
+            --accent-cyan: #00e5ff;
+            --accent-amber: #ffb300;
+            --border-color: #3d3d3d;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            padding: 10px;
+        }
+
+        #scratchpad-container {
+            position: relative;
+            top: 0;
+            background-color: var(--bg-main);
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+            z-index: 100;
+        }
+
+        .panel {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .panel-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .grid-inputs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        input[type="text"], input[type="number"] {
+            background-color: var(--bg-input);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        input:focus {
+            outline: 1px solid var(--accent-cyan);
+        }
+
+        .btn {
+            background-color: var(--bg-input);
+            border: 1px solid var(--border-color);
+            color: var(--accent-cyan);
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .btn:hover {
+            background-color: var(--border-color);
+        }
+
+        #calculators-container {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            width: 100%;
+        }
+
+        .calc-panel {
+            margin-top: 0;
+        }
+
+        .result-box {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: rgba(0, 229, 255, 0.05);
+            border-left: 4px solid var(--accent-cyan);
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        .result-value {
+            color: var(--accent-cyan);
+            font-size: 18px;
+        }
+
+        #modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            border-radius: 6px;
+            width: 300px;
+        }
+
+        .modal-actions {
+            margin-top: 15px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        #btn-dep-metar, #btn-arr-metar {
+            padding-top: 9px;
+            padding-bottom: 9px;
+        }
+
+        .btn.accordion-toggle {
+            background-color: transparent;
+            border: 1px solid transparent;
+            color: var(--text-main);
+            padding: 10px 5px;
+        }
+
+        .btn.accordion-toggle:hover {
+            background-color: var(--bg-input);
+            border-color: var(--border-color);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="scratchpad-container">
+        <div class="panel">
+            <div class="panel-title">
+                Main info and scratchpads
+                <div>
+                    <button class="btn" id="btn-open-simbrief">Get from Simbrief</button>
+                    <button class="btn" id="btn-clear-scratchpad" style="color: #ff5252; border-color: #5c2626;">Clear Scratchpad</button>
+                </div>
+            </div>
+            
+            <div class="grid-inputs" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));">
+                <div class="input-group">
+                    <label for="scratch-callsign">Callsign</label>
+                    <input type="text" id="scratch-callsign">
+                </div>
+                <div class="input-group">
+                    <label for="scratch-aircraft">Aircraft</label>
+                    <input type="text" id="scratch-aircraft">
+                </div>
+                <div class="input-group">
+                    <label for="scratch-route">Route</label>
+                    <input type="text" id="scratch-route" placeholder="LEMD/LEBL">
+                </div>
+                <div class="input-group">
+                    <label for="scratch-std">EOBT</label>
+                    <input type="text" id="scratch-std" placeholder="00:00">
+                </div>
+                <div class="input-group">
+                    <label for="scratch-ramp-fuel">Block Fuel</label>
+                    <input type="text" id="scratch-ramp-fuel">
+                </div>
+                <div class="input-group">
+                    <label for="scratch-pax">Pax</label>
+                    <input type="text" id="scratch-pax">
+                </div>
+                <div class="input-group">
+                    <label for="scratch-cargo">Cargo</label>
+                    <input type="text" id="scratch-cargo">
+                </div>
+            </div>
+
+            <div class="accordion-section" style="margin-top: 15px;">
+                <button class="btn accordion-toggle" style="width: 100%; text-align: left; margin-bottom: 5px;">▶ Departure Info</button>
+                <div class="accordion-content" style="display: none; padding: 10px 0;">
+                    <div class="grid-inputs" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));">
+                        <div class="input-group"><label>ICAO</label><input type="text" id="dep-icao"></div>
+                        <div class="input-group"><label>Name</label><input type="text" id="dep-name"></div>
+                        <div class="input-group" style="justify-content: flex-end;"><button class="btn" id="btn-dep-metar">Open METAR</button></div>
+                        <div class="input-group"><label>Planned RWY</label><input type="text" id="dep-rwy"></div>
+                        <div class="input-group"><label>Trans Alt (FT) from siembrief</label><input type="text" id="dep-trans-alt"></div>
+                    </div>
+                    <div class="input-group" style="margin-top: 10px;">
+                        <label>ATC Flight Plan</label>
+                        <p id="dep-atc-fpln" style="background: var(--bg-input); padding: 8px; border-radius: 4px; font-size: 13px; font-family: monospace; border: 1px solid var(--border-color); min-height: 40px; white-space: pre-wrap;"></p>
+                    </div>
+                    <br>
+                    <hr>
+                    <div class="grid-inputs" style="margin-top: 10px;">
+                        <div class="input-group"><label>QNH</label><input type="text" id="dep-qnh"></div>
+                        <div class="input-group"><label>DEL Freq</label><input type="text" id="dep-freq-del"></div>
+                        <div class="input-group"><label>GND Freq</label><input type="text" id="dep-freq-gnd"></div>
+                        <div class="input-group"><label>TWR Freq</label><input type="text" id="dep-freq-twr"></div>
+                        <div class="input-group"><label>DEP Freq</label><input type="text" id="dep-freq-dep"></div>
+                    </div>
+                    <div class="grid-inputs" style="margin-top: 10px; grid-template-columns: 1fr 1fr;">
+                        <div class="input-group"><label>IFR Clearance</label><input type="text" id="dep-ifr-clearance"></div>
+                        <div class="input-group"><label>Taxi Clearance</label><input type="text" id="dep-taxi-clearance"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-section">
+                <button class="btn accordion-toggle" style="width: 100%; text-align: left; margin-bottom: 5px;">▶ Preparing MCDU</button>
+                <div class="accordion-content" style="display: none; padding: 10px 0;">
+                    <div class="input-group" style="margin-bottom: 10px;">
+                        <label>INIT A</label>
+                        <div id="mcdu-init-a" style="background: var(--bg-input); padding: 8px; border-radius: 4px; font-size: 13px; font-family: monospace; border: 1px solid var(--border-color); min-height: 40px; white-space: pre-wrap; line-height: 1.5;"></div>
+                    </div>
+                    <div class="input-group" style="margin-bottom: 10px;">
+                        <label>F-PLN ROUTE</label>
+                        <div id="mcdu-fpln" style="background: var(--bg-input); padding: 8px; border-radius: 4px; font-size: 13px; font-family: monospace; border: 1px solid var(--border-color); min-height: 40px; white-space: pre-wrap; line-height: 1.5;"></div>
+                    </div>
+                    <div class="input-group">
+                        <label>INIT B</label>
+                        <div id="mcdu-init-b" style="background: var(--bg-input); padding: 8px; border-radius: 4px; font-size: 13px; font-family: monospace; border: 1px solid var(--border-color); min-height: 40px; white-space: pre-wrap; line-height: 1.5;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-section">
+                <button class="btn accordion-toggle" style="width: 100%; text-align: left;">▶ Arrival Info</button>
+                <div class="accordion-content" style="display: none; padding: 10px 0;">
+                    <div class="grid-inputs" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));">
+                        <div class="input-group"><label>ICAO</label><input type="text" id="arr-icao"></div>
+                        <div class="input-group"><label>Name</label><input type="text" id="arr-name"></div>
+                        <div class="input-group" style="justify-content: flex-end;"><button class="btn" id="btn-arr-metar">Open METAR</button></div>
+                        <div class="input-group"><label>Planned RWY</label><input type="text" id="arr-rwy"></div>
+                        <div class="input-group"><label>Elevation (FT)</label><input type="text" id="arr-elevation"></div>
+                    </div>
+                    <div class="grid-inputs" style="margin-top: 10px; grid-template-columns: 1fr 1fr 1fr;">
+                        <div class="input-group"><label>Arr QNH</label><input type="number" id="arr-qnh" value="1013"></div>
+                        <div class="input-group"><label>Trans Alt (FT) from siembrief</label><input type="number" id="arr-trans-alt-ref"></div>
+                        <div class="input-group"><label style="color: var(--accent-amber);">Transition Level (if atc not available)</label><input type="text" id="arr-trans-level" readonly style="color: var(--accent-amber);"></div>
+                    </div>
+                    <div class="grid-inputs" style="margin-top: 10px;">
+                        <div class="input-group"><label>APP Freq</label><input type="text" id="arr-freq-app"></div>
+                        <div class="input-group"><label>TWR Freq</label><input type="text" id="arr-freq-twr"></div>
+                        <div class="input-group"><label>GND Freq</label><input type="text" id="arr-freq-gnd"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-section">
+                <button class="btn accordion-toggle" style="width: 100%; text-align: left; margin-bottom: 5px;">▶ Alternate Info</button>
+                <div class="accordion-content" style="display: none; padding: 10px 0;">
+                    <div class="grid-inputs" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));">
+                        <div class="input-group"><label>ICAO</label><input type="text" id="alt-icao"></div>
+                        <div class="input-group"><label>Name</label><input type="text" id="alt-name"></div>
+                        <div class="input-group"><label>Planned RWY</label><input type="text" id="alt-rwy"></div>
+                        <div class="input-group"><label>Elevation (FT)</label><input type="text" id="alt-elevation"></div>
+                    </div>
+                    <div class="grid-inputs" style="margin-top: 10px; grid-template-columns: 1fr 1fr 1fr;">
+                        <div class="input-group"><label>Alt QNH</label><input type="number" id="alt-qnh" value="1013"></div>
+                        <div class="input-group"><label>Trans Alt (FT) from simbrief</label><input type="number" id="alt-trans-alt-ref"></div>
+                        <div class="input-group"><label style="color: var(--accent-amber);">Transition Level (if atc not available)</label><input type="text" id="alt-trans-level" readonly style="color: var(--accent-amber);"></div>
+                    </div>
+                    <div class="input-group" style="margin-top: 10px;">
+                        <label>Alternate Route Summary</label>
+                        <p id="alt-route-summary" style="background: var(--bg-input); padding: 8px; border-radius: 4px; font-size: 13px; font-family: monospace; border: 1px solid var(--border-color); min-height: 40px; white-space: pre-wrap; line-height: 1.5;"></p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="calculators-container">
+        <div class="panel calc-panel">
+            <div class="panel-title">Top of Descent (TOD)</div>
+            <div class="grid-inputs" style="grid-template-columns: 1fr 1fr;">
+                <div class="input-group">
+                    <label>Current Altitude (FT)</label>
+                    <input type="number" id="tod-current-alt" value="35000">
+                </div>
+                <div class="input-group">
+                    <label>Target Altitude (FT)</label>
+                    <input type="number" id="tod-target-alt" value="5000">
+                </div>
+                <div class="input-group">
+                    <label>Current Speed (KT IAS)</label>
+                    <input type="number" id="tod-current-spd" value="310">
+                </div>
+                <div class="input-group">
+                    <label>Target Speed (KT IAS)</label>
+                    <input type="number" id="tod-target-spd" value="160">
+                </div>
+                <div class="input-group">
+                    <label>Aircraft Heading (°)</label>
+                    <input type="number" id="tod-hdg" placeholder="e.g. 090">
+                </div>
+                <div class="input-group">
+                    <label>Wind FROM º</label>
+                    <input type="number" id="tod-wdir" placeholder="e.g. 120">
+                </div>
+                <div class="input-group">
+                    <label>Wind KT</label>
+                    <input type="number" id="tod-wspd" placeholder="e.g. 25">
+                </div>
+            </div>
+            <div class="result-box">
+                Start descending at <span class="result-value" id="tod-result">0</span> NM from target waypoint
+                <div id="tod-wind-text" style="color: var(--text-muted); font-size: 12px; margin-top: 5px;">Wind component: 0 KT</div>
+            </div>
+        </div>
+
+        <div class="panel calc-panel">
+            <div class="panel-title">Landing Weight Prediction</div>
+            <div class="grid-inputs">
+                <div class="input-group">
+                    <label>Gross Weight (KG)</label>
+                    <input type="number" id="elw-gw" value="64000">
+                </div>
+                <div class="input-group">
+                    <label>FOB (KG)</label>
+                    <input type="number" id="elw-fob" value="6000">
+                </div>
+                <div class="input-group">
+                    <label>DEST EFOB (KG)</label>
+                    <input type="number" id="elw-dest-efob" value="2200">
+                </div>
+            </div>
+            <div class="result-box">
+                Predicted Landing Weight: <span class="result-value" id="elw-result">0</span> KG
+                <div style="color: var(--text-muted); font-size: 12px; margin-top: 5px;">With safety margin added</div>
+            </div>
+        </div>
+
+        <div class="panel calc-panel">
+            <div class="panel-title">Flight Plan Legs Sum</div>
+            <div class="grid-inputs" style="grid-template-columns: 1fr;">
+                <div class="input-group">
+                    <label>Legs Chain (e.g. 27.1+32+6.4)</label>
+                    <input type="text" id="legs-chain" placeholder="Enter legs separated by +">
+                </div>
+            </div>
+            <div class="result-box">
+               Total: <span class="result-value" id="legs-result">0</span> NM
+            </div>
+        </div>
+
+        <div class="panel calc-panel">
+            <div class="panel-title">Time/distance Prediction during descend</div>
+            <div class="grid-inputs" style="grid-template-columns: 1fr 1fr;">
+                <div class="input-group">
+                    <label>Current Altitude (FT)</label>
+                    <input type="number" id="pred-current-alt" value="25000">
+                </div>
+                <div class="input-group">
+                    <label>Current V/S (FT/MIN)</label>
+                    <input type="number" id="pred-vs" value="1400">
+                </div>
+                <div class="input-group">
+                    <label>Target Altitude (FT)</label>
+                    <input type="number" id="pred-target-alt" value="10000">
+                </div>
+                <div class="result-box" style="margin-top: 0;">
+                    Time: <span class="result-value" id="pred-time-result">00:00</span> minutes
+                </div>
+            </div>
+            <br>
+            <div class="grid-inputs" style="grid-template-columns: 1fr 1fr;">
+                <div class="input-group">
+                    <label>Initial Ground Speed (KT)</label>
+                    <input type="number" id="pred-gs" value="320">
+                </div>
+                <div class="input-group">
+                    <label>Aircraft Heading (°)</label>
+                    <input type="number" id="pred-hdg" placeholder="e.g. 090">
+                </div>
+                <div class="input-group">
+                    <label>Wind FROM º</label>
+                    <input type="number" id="pred-wdir" placeholder="e.g. 120">
+                </div>
+                <div class="input-group">
+                    <label>Wind KT</label>
+                    <input type="number" id="pred-wspd" placeholder="e.g. 25">
+                </div>
+                <div class="result-box" style="margin-top: 0; border-left-color: var(--accent-amber);">
+                    Distance flown: <span class="result-value" id="pred-dist-result" style="color: var(--accent-amber);">0</span> NM
+                    <div id="pred-wind-text" style="color: var(--text-muted); font-size: 12px; margin-top: 5px;">Wind component: 0 KT</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel calc-panel">
+            <div class="panel-title">Required V/S Rate</div>
+            <div class="grid-inputs" style="grid-template-columns: 1fr 1fr;">
+                <div class="input-group">
+                    <label>Current Altitude (FT)</label>
+                    <input type="number" id="vs-current-alt" value="25000">
+                </div>
+                <div class="input-group">
+                    <label>Target Altitude (FT)</label>
+                    <input type="number" id="vs-target-alt" value="17000">
+                </div>
+                <div class="input-group">
+                    <label>Distance to Target (NM)</label>
+                    <input type="number" id="vs-dist" value="20">
+                </div>
+                <div class="input-group">
+                    <label>Initial GS (KT)</label>
+                    <input type="number" id="vs-est-gs" value="300">
+                </div>
+                <div class="input-group">
+                    <label>Aircraft Heading (°)</label>
+                    <input type="number" id="vs-hdg" placeholder="e.g. 090">
+                </div>
+                <div class="input-group">
+                    <label>Wind FROM º</label>
+                    <input type="number" id="vs-wdir" placeholder="e.g. 120">
+                </div>
+                <div class="input-group">
+                    <label>Wind KT</label>
+                    <input type="number" id="vs-wspd" placeholder="e.g. 25">
+                </div>
+                <div class="result-box" style="margin-top: 0; grid-column: span 2;">
+                    Required V/S: <span class="result-value" id="vs-rate-result">0</span> FT/MIN
+                    <div id="vs-wind-text" style="color: var(--text-muted); font-size: 12px; margin-top: 5px;">Wind component: 0 KT</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel calc-panel">
+            <div class="panel-title">Fuel Burn Prediction</div>
+            <div class="grid-inputs" style="grid-template-columns: 1fr 1fr;">
+                <div class="input-group">
+                    <label>Fuel Flow</label>
+                    <input type="number" id="ff-rate" value="40">
+                </div>
+                <div class="input-group">
+                    <label>Units</label>
+                    <select id="ff-unit" style="background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); padding: 8px; border-radius: 4px; font-size: 14px; font-weight: bold; font-family: Arial, sans-serif;">
+                        <option value="KG/MIN" selected>KG/MIN</option>
+                        <option value="KG/HR">KG/HR</option>
+                        <option value="LBS/MIN">LBS/MIN</option>
+                        <option value="LBS/HR">LBS/HR</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>FOB</label>
+                    <input type="number" id="ff-fob" value="5000">
+                </div>
+                <div class="input-group">
+                    <label>Predict for ... minutes</label>
+                    <input type="number" id="ff-min" value="10">
+                </div>
+            </div>
+            <div class="result-box" style="font-size: 13px;">
+                Used: <span class="result-value" id="ff-used-result" style="font-size: 15px;">0</span> | Remaining: <span class="result-value" id="ff-rem-result" style="font-size: 15px;">0</span> <span id="ff-res-unit" style="color: var(--text-muted); font-size: 12px;">KG</span>
+            </div>
+        </div>
+
+        <div class="panel calc-panel">
+            <div class="panel-title">Equitime Point (ETP)</div>
+            <p style="font-size: 11px;color: var(--text-muted);">Distance and wind component from SimBrief OFP</p>
+            <br>
+            <div class="grid-inputs" style="grid-template-columns: 1fr 1fr;">
+                <div class="input-group">
+                    <label>Total Dist from DEPT to ARR (NM)</label>
+                    <input type="number" id="etp-dist" value="400">
+                </div>
+                <div class="input-group">
+                    <label>TAS (KT)</label>
+                    <input type="number" id="etp-tas" value="440">
+                </div>
+                <div class="input-group">
+                    <label>Wind component to DEPT (+/- KT)</label>
+                    <input type="number" id="etp-wind-a" placeholder="Tail+ / Head-">
+                </div>
+                <div class="input-group">
+                    <label>Wind component to ARR (+/- KT)</label>
+                    <input type="number" id="etp-wind-b" placeholder="Tail+ / Head-">
+                </div>
+            </div>
+            <div class="result-box" style="font-size: 13px;">
+                ETP from Departure: <span class="result-value" id="etp-result" style="font-size: 16px;">0</span> NM
+                <div id="etp-geo-result" style="color: var(--accent-amber); font-size: 12px; margin-top: 5px; font-weight: normal;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel" style="margin-top: 10px;">
+        <div class="panel-title">Waypoints info from OFP</div>
+        <div class="grid-inputs" style="grid-template-columns: 1fr;">
+            <div class="input-group">
+                <label for="wp-search">Select or Type Waypoint</label>
+                <input type="text" id="wp-search" list="wp-list" placeholder="e.g. TEBLA">
+                <datalist id="wp-list"></datalist>
+            </div>
+        </div>
+        <div id="wp-results" style="display: none; margin-top: 15px; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="result-box" style="margin-top: 0;">
+                Planned Elapsed Time: <span class="result-value" id="wp-time">00:00</span> hours
+            </div>
+            <div class="result-box" style="margin-top: 0; border-left-color: var(--accent-amber);">
+                Planned Remaining Fuel: <span class="result-value" id="wp-fuel" style="color: var(--accent-amber);">0</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-overlay">
+        <div class="modal">
+            <div class="panel-title" style="margin-bottom: 15px;">Get data from SimBrief</div>
+            <div class="input-group">
+                <label for="simbrief-username">Username</label>
+                <input type="text" id="simbrief-username">
+            </div>
+            <div class="modal-actions">
+                <button class="btn" style="color: var(--text-muted);" id="btn-close-simbrief">Cancel</button>
+                <button class="btn" id="btn-submit-simbrief">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+const btnOpenSimbrief = document.getElementById('btn-open-simbrief');
+const btnCloseSimbrief = document.getElementById('btn-close-simbrief');
+const btnSubmitSimbrief = document.getElementById('btn-submit-simbrief');
+const btnClearScratchpad = document.getElementById('btn-clear-scratchpad');
+const modalOverlay = document.getElementById('modal-overlay');
+const simbriefUsernameInput = document.getElementById('simbrief-username');
+const btnDepMetar = document.getElementById('btn-dep-metar');
+const btnArrMetar = document.getElementById('btn-arr-metar');
+
+const scratchFields = {
+    'scratch-callsign': document.getElementById('scratch-callsign'),
+    'scratch-aircraft': document.getElementById('scratch-aircraft'),
+    'scratch-route': document.getElementById('scratch-route'), 
+    'scratch-std': document.getElementById('scratch-std'),
+    'scratch-ramp-fuel': document.getElementById('scratch-ramp-fuel'),
+    'scratch-pax': document.getElementById('scratch-pax'),
+    'scratch-cargo': document.getElementById('scratch-cargo'),
+    'dep-icao': document.getElementById('dep-icao'),
+    'dep-name': document.getElementById('dep-name'),
+    'dep-rwy': document.getElementById('dep-rwy'),
+    'dep-trans-alt': document.getElementById('dep-trans-alt'),
+    'dep-qnh': document.getElementById('dep-qnh'),
+    'dep-freq-del': document.getElementById('dep-freq-del'),
+    'dep-freq-gnd': document.getElementById('dep-freq-gnd'),
+    'dep-freq-twr': document.getElementById('dep-freq-twr'),
+    'dep-freq-dep': document.getElementById('dep-freq-dep'),
+    'dep-ifr-clearance': document.getElementById('dep-ifr-clearance'),
+    'dep-taxi-clearance': document.getElementById('dep-taxi-clearance'),
+    'arr-icao': document.getElementById('arr-icao'),
+    'arr-name': document.getElementById('arr-name'),
+    'arr-rwy': document.getElementById('arr-rwy'),
+    'arr-elevation': document.getElementById('arr-elevation'),
+    'arr-qnh': document.getElementById('arr-qnh'),
+    'arr-trans-alt-ref': document.getElementById('arr-trans-alt-ref'),
+    'arr-freq-app': document.getElementById('arr-freq-app'),
+    'arr-freq-twr': document.getElementById('arr-freq-twr'),
+    'arr-freq-gnd': document.getElementById('arr-freq-gnd'),
+    'arr-freq-app': document.getElementById('arr-freq-app'),
+    'arr-freq-twr': document.getElementById('arr-freq-twr'),
+    'arr-freq-gnd': document.getElementById('arr-freq-gnd'),
+    'alt-icao': document.getElementById('alt-icao'),
+    'alt-name': document.getElementById('alt-name'),
+    'alt-rwy': document.getElementById('alt-rwy'),
+    'alt-elevation': document.getElementById('alt-elevation'),
+    'alt-qnh': document.getElementById('alt-qnh'),
+    'alt-trans-alt-ref': document.getElementById('alt-trans-alt-ref')
+};
+const depAtcFpln = document.getElementById('dep-atc-fpln');
+const arrTransLevel = document.getElementById('arr-trans-level');
+
+const todCurrentAlt = document.getElementById('tod-current-alt');
+const todTargetAlt = document.getElementById('tod-target-alt');
+const todCurrentSpd = document.getElementById('tod-current-spd');
+const todTargetSpd = document.getElementById('tod-target-spd');
+const todHdg = document.getElementById('tod-hdg');
+const todWdir = document.getElementById('tod-wdir');
+const todWspd = document.getElementById('tod-wspd');
+const todResult = document.getElementById('tod-result');
+
+const elwGw = document.getElementById('elw-gw');
+const elwFob = document.getElementById('elw-fob');
+const elwDestEfob = document.getElementById('elw-dest-efob');
+const elwResult = document.getElementById('elw-result');
+
+const legsChain = document.getElementById('legs-chain');
+const legsResult = document.getElementById('legs-result');
+
+const predCurrentAlt = document.getElementById('pred-current-alt');
+const predVs = document.getElementById('pred-vs');
+const predTargetAlt = document.getElementById('pred-target-alt');
+const predGs = document.getElementById('pred-gs');
+const predHdg = document.getElementById('pred-hdg');
+const predWdir = document.getElementById('pred-wdir');
+const predWspd = document.getElementById('pred-wspd');
+const predTimeResult = document.getElementById('pred-time-result');
+const predDistResult = document.getElementById('pred-dist-result');
+
+const vsTargetAlt = document.getElementById('vs-target-alt');
+const vsDist = document.getElementById('vs-dist');
+const vsCurrentAlt = document.getElementById('vs-current-alt');
+const vsEstGs = document.getElementById('vs-est-gs');
+const vsHdg = document.getElementById('vs-hdg');
+const vsWdir = document.getElementById('vs-wdir');
+const vsWspd = document.getElementById('vs-wspd');
+const vsRateResult = document.getElementById('vs-rate-result');
+
+const etpDist = document.getElementById('etp-dist');
+const etpTas = document.getElementById('etp-tas');
+const etpWindA = document.getElementById('etp-wind-a');
+const etpWindB = document.getElementById('etp-wind-b');
+const etpResult = document.getElementById('etp-result');
+const etpGeoResult = document.getElementById('etp-geo-result'); 
+let simbriefNavlogDistances = [];
+
+const ffFob = document.getElementById('ff-fob');
+const ffUnit = document.getElementById('ff-unit');
+const ffRate = document.getElementById('ff-rate');
+const ffMin = document.getElementById('ff-min');
+const ffUsedResult = document.getElementById('ff-used-result');
+const ffRemResult = document.getElementById('ff-rem-result');
+const ffResUnit = document.getElementById('ff-res-unit');
+
+btnDepMetar.addEventListener('click', () => {
+    const icao = scratchFields['dep-icao'].value.trim();
+    if (icao) window.open(`https://metar-taf.com/metar/${icao}`, '_blank');
+});
+
+btnArrMetar.addEventListener('click', () => {
+    const icao = scratchFields['arr-icao'].value.trim();
+    if (icao) window.open(`https://metar-taf.com/metar/${icao}`, '_blank');
+});
+
+document.querySelectorAll('.accordion-toggle').forEach(button => {
+    button.addEventListener('click', () => {
+        const content = button.nextElementSibling;
+        const isVisible = content.style.display === 'block';
+        content.style.display = isVisible ? 'none' : 'block';
+        button.textContent = (isVisible ? '▶ ' : '▼ ') + button.textContent.substring(2);
+    });
+});
+
+function saveScratchpad() {
+    const data = { 
+        fields: {}, 
+        paragraphs: { 
+            'dep-atc-fpln': depAtcFpln.textContent,
+            'mcdu-init-a': document.getElementById('mcdu-init-a').innerHTML,
+            'mcdu-fpln': document.getElementById('mcdu-fpln').innerHTML,
+            'mcdu-init-b': document.getElementById('mcdu-init-b').innerHTML,
+            'alt-route-summary': document.getElementById('alt-route-summary').innerHTML
+        } 
+    };
+    Object.keys(scratchFields).forEach(key => {
+        data.fields[key] = scratchFields[key].value;
+    });
+    localStorage.setItem('a320_scratchpad_data', JSON.stringify(data));
+}
+
+function loadScratchpad() {
+    const saved = localStorage.getItem('a320_scratchpad_data');
+    if (!saved) {
+        scratchFields['arr-qnh'].value = "1013";
+        calculateTransitionLevel();
+        return;
+    }
+    try {
+        const data = JSON.parse(saved);
+        if (data.fields) {
+            Object.keys(data.fields).forEach(key => {
+                if (scratchFields[key]) scratchFields[key].value = data.fields[key];
+            });
+        }
+        if (!scratchFields['arr-qnh'].value) scratchFields['arr-qnh'].value = "1013";
+        if (!scratchFields['alt-qnh'].value) scratchFields['alt-qnh'].value = "1013";
+        if (data.paragraphs) {
+            if (data.paragraphs['dep-atc-fpln']) depAtcFpln.textContent = data.paragraphs['dep-atc-fpln'];
+            if (data.paragraphs['mcdu-init-a']) document.getElementById('mcdu-init-a').innerHTML = data.paragraphs['mcdu-init-a'];
+            if (data.paragraphs['mcdu-fpln']) document.getElementById('mcdu-fpln').innerHTML = data.paragraphs['mcdu-fpln'];
+            if (data.paragraphs['mcdu-init-b']) document.getElementById('mcdu-init-b').innerHTML = data.paragraphs['mcdu-init-b'];
+            if (data.paragraphs['alt-route-summary']) document.getElementById('alt-route-summary').innerHTML = data.paragraphs['alt-route-summary'];
+        }
+        calculateTransitionLevel();
+    } catch (e) {}
+}
+
+Object.values(scratchFields).forEach(input => {
+    input.addEventListener('input', () => {
+        if (input.id === 'arr-qnh' || input.id === 'arr-trans-alt-ref' || input.id === 'alt-qnh' || input.id === 'alt-trans-alt-ref') {
+            calculateTransitionLevel();
+        }
+        saveScratchpad();
+    });
+});
+
+btnClearScratchpad.addEventListener('click', () => {
+    Object.values(scratchFields).forEach(input => input.value = '');
+    depAtcFpln.textContent = '';
+    document.getElementById('mcdu-init-a').innerHTML = '';
+    document.getElementById('mcdu-fpln').innerHTML = '';
+    document.getElementById('mcdu-init-b').innerHTML = '';
+    document.getElementById('alt-route-summary').innerHTML = '';
+    arrTransLevel.value = '';
+    document.getElementById('alt-trans-level').value = '';
+    localStorage.removeItem('a320_scratchpad_data');
+    document.getElementById('wp-search').value = '';
+    document.getElementById('wp-list').innerHTML = '';
+    document.getElementById('wp-results').style.display = 'none';
+});
+
+btnOpenSimbrief.addEventListener('click', () => { modalOverlay.style.display = 'flex'; });
+btnCloseSimbrief.addEventListener('click', () => { modalOverlay.style.display = 'none'; });
+
+btnSubmitSimbrief.addEventListener('click', () => {
+    const username = simbriefUsernameInput.value.trim();
+    if (!username) return;
+
+    fetch(`https://www.simbrief.com/api/xml.fetcher.php?username=${encodeURIComponent(username)}`)
+        .then(response => {
+            if (!response.ok) throw new Error();
+            return response.text();
+        })
+        .then(str => {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(str, "text/xml");
+            
+            const getVal = (query) => xmlDoc.querySelector(query)?.textContent || '';
+            const unit = getVal('params units').toUpperCase();
+
+            scratchFields['scratch-callsign'].value = getVal('atc callsign');
+            scratchFields['scratch-aircraft'].value = getVal('aircraft name');
+            scratchFields['scratch-route'].value = `${getVal('origin icao_code')} / ${getVal('destination icao_code')}`;
+            const depHourSecs = parseInt(getVal('api_params dephour')) || 0;
+            const depMinSecs = parseInt(getVal('api_params depmin')) || 0;
+            const stdHours = String(Math.floor(depHourSecs / 3600)).padStart(2, '0');
+            const stdMinutes = String(Math.floor(depMinSecs / 60)).padStart(2, '0');
+            scratchFields['scratch-std'].value = `${stdHours}:${stdMinutes}`;
+            scratchFields['scratch-ramp-fuel'].value = getVal('fuel plan_ramp') ? `${getVal('fuel plan_ramp')} ${unit}` : '';
+            
+            const paxCount = getVal('weights pax_count_actual');
+            const paxWeight = getVal('weights pax_weight');
+            scratchFields['scratch-pax'].value = paxCount ? `${paxCount} PAX (${paxWeight} ${unit})` : '';
+            
+            const cargo = getVal('weights cargo');
+            const bagWeight = getVal('weights bag_weight');
+            scratchFields['scratch-cargo'].value = cargo ? `${cargo} ${unit} (Bag: ${bagWeight} ${unit})` : '';
+
+            scratchFields['dep-icao'].value = getVal('origin icao_code');
+            scratchFields['dep-name'].value = getVal('origin name');
+            scratchFields['dep-rwy'].value = getVal('origin plan_rwy');
+            const rawDepTransAlt = getVal('origin trans_alt');
+            scratchFields['dep-trans-alt'].value = rawDepTransAlt ? parseInt(rawDepTransAlt, 10).toString() : '';
+            depAtcFpln.textContent = getVal('atc flightplan_text');
+
+            scratchFields['arr-icao'].value = getVal('destination icao_code');
+            scratchFields['arr-name'].value = getVal('destination name');
+            scratchFields['arr-rwy'].value = getVal('destination plan_rwy');
+            scratchFields['arr-elevation'].value = getVal('destination elevation');
+            const rawArrTransAlt = getVal('destination trans_alt');
+            scratchFields['arr-trans-alt-ref'].value = rawArrTransAlt ? parseInt(rawArrTransAlt, 10).toString() : '';
+
+            scratchFields['alt-icao'].value = getVal('alternate icao_code');
+            scratchFields['alt-name'].value = getVal('alternate name');
+            scratchFields['alt-rwy'].value = getVal('alternate plan_rwy');
+            scratchFields['alt-elevation'].value = getVal('alternate elevation');
+            const rawAltTransAlt = getVal('alternate trans_alt');
+            scratchFields['alt-trans-alt-ref'].value = rawAltTransAlt ? parseInt(rawAltTransAlt, 10).toString() : '';
+
+            const altDist = getVal('alternate distance');
+            
+            const rawAltCruise = parseFloat(getVal('alternate cruise_altitude')) || 0;
+            const altCruiseFL = rawAltCruise > 0 ? `FL${Math.round(rawAltCruise / 100)}` : 'N/A';
+            
+            const rawAltEte = parseInt(getVal('alternate ete')) || 0;
+            const altEteHrs = String(Math.floor(rawAltEte / 3600)).padStart(2, '0');
+            const altEteMins = String(Math.floor((rawAltEte % 3600) / 60)).padStart(2, '0');
+            const altEteFormatted = `${altEteHrs}:${altEteMins}`;
+            
+            const altWindComp = getVal('alternate avg_wind_comp');
+            const altWindFormatted = parseFloat(altWindComp) > 0 ? `P${altWindComp}` : `${altWindComp}`;
+            const altTropo = getVal('alternate avg_tropopause');
+            const altRouteText = getVal('alternate route');
+
+            const altSummaryHTML = [
+                `DIST: ${altDist} NM | CRZ: ${altCruiseFL} | ETE: ${altEteFormatted} | WIND: ${altWindFormatted} KT | TROPO: ${altTropo}`,
+                `${altRouteText}`
+            ].join('\n');
+            
+            document.getElementById('alt-route-summary').innerHTML = altSummaryHTML;
+
+            const cruiseAltStr = getVal('general initial_altitude');
+            const cruiseAlt = parseFloat(cruiseAltStr) || 0;
+            const isaDev = parseFloat(getVal('general avg_temp_dev')) || 0;
+            
+
+            const fixes = xmlDoc.querySelectorAll('navlog fix');
+            let totalOat = 0;
+            let count = 0;
+
+            fixes.forEach(fix => {
+                const fixAlt = fix.querySelector('altitude_feet')?.textContent;
+                if (fixAlt === cruiseAltStr) {
+                    const fixOat = parseFloat(fix.querySelector('oat')?.textContent);
+                    if (!isNaN(fixOat)) {
+                        totalOat += fixOat;
+                        count++;
+                    }
+                }
+            });
+
+            const avgOat = count > 0 ? Math.round(totalOat / count) : 0;
+
+            const initA = [
+                `FROM/TO: ${getVal('origin icao_code')}/${getVal('destination icao_code')}`,
+                `ALTN: ${getVal('alternate icao_code') || 'NONE'}`,
+                `CI: ${getVal('general costindex')}`,
+                `CRZ FL: FL${Math.round(cruiseAlt / 100)}`,
+                `AVG ISA DEV: ${isaDev > 0 ? '+' : ''}${isaDev}°C (OAT: ${avgOat}°C)`,
+                `AVG TROPO: ${getVal('general avg_tropopause')}`
+            ].join(' | ');
+            document.getElementById('mcdu-init-a').innerHTML = initA;
+
+            const originIcao = getVal('origin icao_code');
+            const originRwy = getVal('origin plan_rwy');
+            const destIcao = getVal('destination icao_code');
+            const destRwy = getVal('destination plan_rwy');
+            const routeText = getVal('general route');
+            
+            const fplnHTML = `<span style="color: var(--accent-cyan); font-weight: bold;">${originIcao}/${originRwy}</span> ${routeText} <span style="color: var(--accent-cyan); font-weight: bold;">${destIcao}/${destRwy}</span>`;
+            document.getElementById('mcdu-fpln').innerHTML = fplnHTML;
+
+            const initB = [
+                `OFP EST ZFW: ${getVal('weights est_zfw')} ${unit}`,
+                `TAXI FUEL: ${getVal('fuel taxi')} ${unit}`,
+                `ENROUTE FUEL: ${getVal('fuel enroute_burn')} ${unit}`,
+                `RTE RSV (CONT): ${getVal('fuel contingency')} ${unit} (${getVal('general cont_rule')})`,
+                `ALTN FUEL: ${getVal('fuel alternate_burn')} ${unit}`,
+                `FINAL RSV: ${getVal('fuel reserve')} ${unit}`,
+                `AVG TRIP WIND: ${parseFloat(getVal('general avg_wind_comp')) > 0 ? 'P' : ''}${getVal('general avg_wind_comp')} KT`
+            ].join(' | ');
+            document.getElementById('mcdu-init-b').innerHTML = initB;
+
+            const xmlRouteDist = getVal('general route_distance');
+            if (xmlRouteDist) etpDist.value = Math.round(parseFloat(xmlRouteDist));
+
+            const xmlWindComp = parseFloat(getVal('general avg_wind_comp')) || 0;
+            etpWindB.value = xmlWindComp; 
+            etpWindA.value = xmlWindComp * -1;
+
+            calculateETP();
+
+            const wpList = document.getElementById('wp-list');
+            const wpSearch = document.getElementById('wp-search');
+            const wpResults = document.getElementById('wp-results');
+            const wpTime = document.getElementById('wp-time');
+            const wpFuel = document.getElementById('wp-fuel');
+            
+            wpList.innerHTML = ''; 
+            wpSearch.value = '';
+            wpResults.style.display = 'none';
+
+            let cumulativeDistance = 0; 
+            simbriefNavlogDistances = []; 
+
+            const waypointData = {};
+            fixes.forEach(fix => {
+                const ident = fix.querySelector('ident')?.textContent;
+                if (ident) {
+                    const timeTotal = fix.querySelector('time_total')?.textContent || '0';
+                    const fuelOnboard = fix.querySelector('fuel_plan_onboard')?.textContent || '0';
+                    const stageDistance = parseFloat(fix.querySelector('distance')?.textContent) || 0;
+
+                    cumulativeDistance += stageDistance;
+
+                    simbriefNavlogDistances.push({
+                        ident: ident.toUpperCase(),
+                        cumDist: cumulativeDistance
+                    });
+                    
+                    const totalSeconds = parseInt(timeTotal) || 0;
+                    const hrs = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+                    const mins = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+                    const formattedTime = `${hrs}:${mins}`;
+
+                    waypointData[ident.toUpperCase()] = {
+                        time: formattedTime,
+                        fuel: `${fuelOnboard} ${unit}`
+                    };
+
+                    const option = document.createElement('option');
+                    option.value = ident;
+                    wpList.appendChild(option);
+                }
+            });
+
+            const handleWpSelection = () => {
+                const selectedWp = wpSearch.value.toUpperCase().trim();
+                if (waypointData[selectedWp]) {
+                    wpTime.textContent = waypointData[selectedWp].time;
+                    wpFuel.textContent = waypointData[selectedWp].fuel;
+                    wpResults.style.display = 'grid';
+                } else {
+                    wpResults.style.display = 'none';
+                }
+            };
+
+            wpSearch.removeEventListener('input', handleWpSelection); 
+            wpSearch.addEventListener('input', handleWpSelection);
+
+            calculateTransitionLevel();
+            saveScratchpad();
+            modalOverlay.style.display = 'none';
+        })
+        .catch(() => {
+            alert('Error fetching SimBrief data. Ensure no CORS restrictions apply.');
+        });
+});
+
+function calculateTransitionLevel() {
+    const calcTL = (taId, qnhId) => {
+        const ta = parseFloat(document.getElementById(taId).value) || 0;
+        const qnh = parseFloat(document.getElementById(qnhId).value) || 0;
+        if (!ta || !qnh) return '';
+        let correction = 0;
+        if (qnh >= 1032 && qnh <= 1050) correction = 500;
+        else if (qnh >= 1014 && qnh <= 1031) correction = 1000;
+        else if (qnh >= 996 && qnh <= 1013) correction = 1500;
+        else if (qnh >= 978 && qnh <= 995) correction = 2000;
+        else if (qnh >= 960 && qnh <= 977) correction = 2500;
+        else if (qnh >= 942 && qnh <= 959) correction = 3000;
+        return correction > 0 ? `FL${Math.round((ta + correction) / 100)}` : 'Check QNH range';
+    };
+
+    arrTransLevel.value = calcTL('arr-trans-alt-ref', 'arr-qnh');
+    document.getElementById('alt-trans-level').value = calcTL('alt-trans-alt-ref', 'alt-qnh');
+}
+
+function calculateWindComponent(hdg, wdir, wspd) {
+    if (isNaN(hdg) || isNaN(wdir) || isNaN(wspd)) return 0;
+    const angleRad = (wdir - hdg) * (Math.PI / 180);
+    return -wspd * Math.cos(angleRad);
+}
+
+function updateWindText(elementId, component) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (isNaN(component) || component === 0) {
+        el.textContent = "Wind component: 0 KT";
+        el.style.color = "var(--text-muted)";
+        return;
+    }
+    const absWind = Math.round(Math.abs(component));
+    if (component > 0) {
+        el.textContent = `Tailwind: ${absWind} KT`;
+        el.style.color = "var(--accent-cyan)";
+    } else {
+        el.textContent = `Headwind: ${absWind} KT`;
+        el.style.color = "var(--accent-amber)";
+    }
+}
+
+function calculateTOD() {
+    const currentAlt = parseFloat(todCurrentAlt.value) || 0;
+    const targetAlt = parseFloat(todTargetAlt.value) || 0;
+    const currentSpd = parseFloat(todCurrentSpd.value) || 0;
+    const targetSpd = parseFloat(todTargetSpd.value) || 0;
+    
+    const hdg = parseFloat(todHdg.value);
+    const wdir = parseFloat(todWdir.value);
+    const wspd = parseFloat(todWspd.value);
+    const windComponent = calculateWindComponent(hdg, wdir, wspd);
+
+    updateWindText('tod-wind-text', windComponent);
+
+    let baseDistance = ((currentAlt - targetAlt) * 3) / 1000;
+    if (baseDistance < 0) baseDistance = 0;
+    
+    let decelDistance = (currentSpd - targetSpd) / 10;
+    if (decelDistance < 0) decelDistance = 0;
+    
+    let windDistance = windComponent / 10;
+    
+    const totalDistance = (baseDistance + decelDistance + windDistance) * 1.10;
+    todResult.textContent = Math.max(0, Math.round(totalDistance));
+}
+
+function calculateELW() {
+    const gw = parseFloat(elwGw.value) || 0;
+    const fob = parseFloat(elwFob.value) || 0;
+    const destEfob = parseFloat(elwDestEfob.value) || 0;
+    elwResult.textContent = Math.round((gw - (fob - destEfob)) + 200);
+}
+
+function calculateDescentPrediction() {
+    const currentAlt = parseFloat(predCurrentAlt.value) || 0;
+    const targetAlt = parseFloat(predTargetAlt.value) || 0;
+    const vs = parseFloat(predVs.value) || 0;
+    const startGs = parseFloat(predGs.value) || 0;
+    
+    const hdg = parseFloat(predHdg.value);
+    const wdir = parseFloat(predWdir.value);
+    const wspd = parseFloat(predWspd.value);
+    const windComponent = calculateWindComponent(hdg, wdir, wspd);
+
+    updateWindText('pred-wind-text', windComponent);
+
+    const altToDescend = currentAlt - targetAlt;
+    if (altToDescend <= 0 || vs <= 0) {
+        predTimeResult.textContent = "00:00";
+        predDistResult.textContent = "0";
+        return;
+    }
+
+    const totalMinutes = altToDescend / vs;
+    const hrs = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+    const mins = String(Math.floor(totalMinutes % 60)).padStart(2, '0');
+    const secs = String(Math.round((totalMinutes % 1) * 60)).padStart(2, '0');
+    
+    predTimeResult.textContent = parseInt(hrs) > 0 ? `${hrs}:${mins}:${secs}` : `${mins}:${secs}`;
+
+    const altLossThousands = altToDescend / 1000;
+    const averageGsCorrection = (altLossThousands / 2) * 7;
+    const estimatedAvgGs = startGs - averageGsCorrection + windComponent;
+
+    const distance = (Math.max(100, estimatedAvgGs) * totalMinutes) / 60;
+    predDistResult.textContent = Math.round(distance);
+}
+
+function calculateVsPrediction() {
+    const currentAlt = parseFloat(vsCurrentAlt.value) || 0;
+    const targetAlt = parseFloat(vsTargetAlt.value) || 0;
+    const dist = parseFloat(vsDist.value) || 0;
+    const rawGs = parseFloat(vsEstGs.value) || 0; 
+    
+    const hdg = parseFloat(vsHdg.value);
+    const wdir = parseFloat(vsWdir.value);
+    const wspd = parseFloat(vsWspd.value);
+    const windComponent = calculateWindComponent(hdg, wdir, wspd);
+
+    updateWindText('vs-wind-text', windComponent);
+
+    const effectiveGs = rawGs + windComponent;
+    const altToDescend = currentAlt - targetAlt;
+    
+    if (altToDescend <= 0 || dist <= 0 || effectiveGs <= 0) {
+        vsRateResult.textContent = "0";
+        return;
+    }
+
+    const timeToTargetMinutes = (dist / effectiveGs) * 60;
+    const requiredVs = altToDescend / timeToTargetMinutes;
+    vsRateResult.textContent = Math.round(requiredVs);
+}
+
+function calculateETP() {
+    const d = parseFloat(etpDist.value) || 0;
+    const tas = parseFloat(etpTas.value) || 440;
+    const f = parseFloat(etpWindA.value) || 0;
+    const h = parseFloat(etpWindB.value) || 0;
+
+    const gsReturn = tas + f;
+    const gsContinue = tas + h;
+
+    if (d <= 0 || gsReturn <= 0 || gsContinue <= 0) {
+        etpResult.textContent = "0";
+        etpGeoResult.textContent = "";
+        return;
+    }
+
+    const distanceFromA = (d * gsReturn) / (gsContinue + gsReturn);
+    const roundedEtp = Math.round(distanceFromA);
+    etpResult.textContent = roundedEtp;
+
+    if (simbriefNavlogDistances.length > 0) {
+        const targetFix = simbriefNavlogDistances.find(fix => fix.cumDist >= roundedEtp);
+        
+        if (targetFix) {
+            const milesBefore = (targetFix.cumDist - distanceFromA).toFixed(1);
+            etpGeoResult.textContent = `or ${milesBefore} NM before ${targetFix.ident}`;
+        } else {
+            etpGeoResult.textContent = "or past last route waypoint";
+        }
+    } else {
+        etpGeoResult.textContent = " (Write SimBrief username to get a waypoint estimation)";
+    }
+}
+
+function calculateFuelFlow() {
+    const fob = parseFloat(ffFob.value) || 0;
+    const rate = parseFloat(ffRate.value) || 0;
+    const min = parseFloat(ffMin.value) || 0;
+    const unit = ffUnit.value;
+
+    let fuelUsedPerMinute = 0;
+
+    if (unit === 'KG/MIN' || unit === 'LBS/MIN') {
+        fuelUsedPerMinute = rate;
+    } else if (unit === 'KG/HR' || unit === 'LBS/HR') {
+        fuelUsedPerMinute = rate / 60;
+    }
+
+    const fuelUsed = fuelUsedPerMinute * min;
+    const fuelRemaining = fob - fuelUsed;
+
+    const massUnit = unit.split('/')[0];
+
+    ffUsedResult.textContent = Math.round(fuelUsed);
+    ffRemResult.textContent = Math.round(fuelRemaining);
+    ffResUnit.textContent = massUnit;
+}
+
+legsChain.addEventListener('input', () => {
+    const value = legsChain.value.replace(/[^0-9.+-]/g, '');
+    if (!value) { legsResult.textContent = '0'; return; }
+    try {
+        const sum = value.split('+').map(num => parseFloat(num) || 0).reduce((acc, curr) => acc + curr, 0);
+        legsResult.textContent = Number(sum.toFixed(2));
+    } catch (e) { legsResult.textContent = '0'; }
+});
+
+[todCurrentAlt, todTargetAlt, todCurrentSpd, todTargetSpd, todHdg, todWdir, todWspd].forEach(i => i.addEventListener('input', calculateTOD));
+[elwGw, elwFob, elwDestEfob].forEach(i => i.addEventListener('input', calculateELW));
+[predCurrentAlt, predVs, predTargetAlt, predGs, predHdg, predWdir, predWspd].forEach(i => i.addEventListener('input', calculateDescentPrediction));
+[vsTargetAlt, vsDist, vsCurrentAlt, vsEstGs, vsHdg, vsWdir, vsWspd].forEach(i => i.addEventListener('input', calculateVsPrediction));
+[etpDist, etpTas, etpWindA, etpWindB].forEach(i => i.addEventListener('input', calculateETP));
+[ffFob, ffUnit, ffRate, ffMin].forEach(i => i.addEventListener('input', calculateFuelFlow));
+
+loadScratchpad();
+calculateTOD();
+calculateELW();    
+calculateDescentPrediction();
+calculateVsPrediction();
+calculateFuelFlow();
+calculateETP();
+</script>
+</body>
+</html>
