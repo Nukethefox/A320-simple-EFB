@@ -348,9 +348,16 @@
                     <label>Wind KT</label>
                     <input type="number" id="tod-wspd" placeholder="e.g. 25">
                 </div>
+                <div class="input-group" style="grid-column: span 2; margin-top: 5px;">
+                    <label>Target Waypoint</label>
+                    <select id="tod-target-fix" style="background-color: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); padding: 8px; border-radius: 4px; font-size: 14px; font-weight: bold; width: 100%;">
+                        <option value="">-- Import SimBrief First --</option>
+                    </select>
+                </div>
             </div>
             <div class="result-box">
                 Start descending at <span class="result-value" id="tod-result">0</span> NM from target waypoint
+                <div id="tod-geo-result" style="color: var(--accent-amber); font-size: 12px; margin-top: 5px; font-weight: normal;"></div>
                 <div id="tod-wind-text" style="color: var(--text-muted); font-size: 12px; margin-top: 5px;">Wind component: 0 KT</div>
             </div>
         </div>
@@ -450,7 +457,7 @@
                     <input type="number" id="vs-dist" value="20">
                 </div>
                 <div class="input-group">
-                    <label>Initial GS (KT)</label>
+                    <label>Initial Ground Speed (KT)</label>
                     <input type="number" id="vs-est-gs" value="300">
                 </div>
                 <div class="input-group">
@@ -504,7 +511,7 @@
 
         <div class="panel calc-panel">
             <div class="panel-title">Equitime Point (ETP)</div>
-            <p style="font-size: 11px;color: var(--text-muted);">Distance and wind component from SimBrief OFP</p>
+            <p style="font-size: 11px;color: var(--text-muted);">Distance and wind components are specified on SimBrief OFP</p>
             <br>
             <div class="grid-inputs" style="grid-template-columns: 1fr 1fr;">
                 <div class="input-group">
@@ -525,7 +532,7 @@
                 </div>
             </div>
             <div class="result-box" style="font-size: 13px;">
-                ETP from Departure: <span class="result-value" id="etp-result" style="font-size: 16px;">0</span> NM
+                ETP from Departure airport: <span class="result-value" id="etp-result" style="font-size: 16px;">0</span> NM
                 <div id="etp-geo-result" style="color: var(--accent-amber); font-size: 12px; margin-top: 5px; font-weight: normal;"></div>
             </div>
         </div>
@@ -622,6 +629,8 @@ const todTargetSpd = document.getElementById('tod-target-spd');
 const todHdg = document.getElementById('tod-hdg');
 const todWdir = document.getElementById('tod-wdir');
 const todWspd = document.getElementById('tod-wspd');
+const todTargetFix = document.getElementById('tod-target-fix');
+const todGeoResult = document.getElementById('tod-geo-result');
 const todResult = document.getElementById('tod-result');
 
 const elwGw = document.getElementById('elw-gw');
@@ -895,6 +904,11 @@ btnSubmitSimbrief.addEventListener('click', () => {
 
             calculateETP();
 
+            if (todTargetFix.options.length > 1) {
+                todTargetFix.selectedIndex = todTargetFix.options.length - 1;
+            }
+            calculateTOD();
+
             const wpList = document.getElementById('wp-list');
             const wpSearch = document.getElementById('wp-search');
             const wpResults = document.getElementById('wp-results');
@@ -907,6 +921,8 @@ btnSubmitSimbrief.addEventListener('click', () => {
 
             let cumulativeDistance = 0; 
             simbriefNavlogDistances = []; 
+
+            todTargetFix.innerHTML = '<option value="">-- Select Target Waypoint --</option>';
 
             const waypointData = {};
             fixes.forEach(fix => {
@@ -922,6 +938,13 @@ btnSubmitSimbrief.addEventListener('click', () => {
                         ident: ident.toUpperCase(),
                         cumDist: cumulativeDistance
                     });
+
+                    if (ident.toUpperCase() !== 'TOD') {
+                        const optTod = document.createElement('option');
+                        optTod.value = ident.toUpperCase();
+                        optTod.textContent = ident.toUpperCase();
+                        todTargetFix.appendChild(optTod);
+                    }
                     
                     const totalSeconds = parseInt(timeTotal) || 0;
                     const hrs = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
@@ -957,7 +980,8 @@ btnSubmitSimbrief.addEventListener('click', () => {
             saveScratchpad();
             modalOverlay.style.display = 'none';
         })
-        .catch(() => {
+        .catch(error => {
+            console.error('SimBrief fetch error:', error);
             alert('Error fetching SimBrief data. Ensure no CORS restrictions apply.');
         });
 });
@@ -1026,8 +1050,58 @@ function calculateTOD() {
     
     let windDistance = windComponent / 10;
     
-    const totalDistance = (baseDistance + decelDistance + windDistance) * 1.10;
-    todResult.textContent = Math.max(0, Math.round(totalDistance));
+    const totalDistance = baseDistance + decelDistance + windDistance;
+    const roundedTod = Math.max(0, Math.round(totalDistance));
+    todResult.textContent = roundedTod;
+
+    const selectedFix = todTargetFix.value;
+
+    console.groupCollapsed('TOD calculation');
+    console.log('TOD inputs', { currentAlt, targetAlt, currentSpd, targetSpd, hdg, wdir, wspd });
+    console.log('TOD components', { baseDistance, decelDistance, windDistance, totalDistance, roundedTod });
+    console.log('selectedFix', selectedFix, 'simbriefNavlogDistances length', simbriefNavlogDistances.length);
+    if (selectedFix && simbriefNavlogDistances.length > 0 && roundedTod > 0) {
+        const targetIndex = simbriefNavlogDistances.findIndex(f => f.ident === selectedFix);
+        
+        if (targetIndex !== -1) {
+            let accumulatedBack = 0;
+            let currentIdx = targetIndex;
+            let finalFixName = selectedFix;
+            let lastLegDistance = 0;
+
+            console.log('targetIndex', targetIndex, 'targetFix', selectedFix);
+
+            while (currentIdx >= 0) {
+                const currentFix = simbriefNavlogDistances[currentIdx];
+                const prevDist = currentIdx > 0 ? simbriefNavlogDistances[currentIdx - 1].cumDist : 0;
+                const legDistance = currentFix.cumDist - prevDist;
+
+                if (currentFix.ident === 'TOD') {
+                    console.log('stop at TOD, last valid fix', finalFixName, 'lastLegDistance', lastLegDistance);
+                    break;
+                }
+
+                console.log('leg step', { currentIdx, fix: currentFix.ident, legDistance, accumulatedBack, threshold: roundedTod });
+
+                accumulatedBack += legDistance;
+                lastLegDistance = legDistance;
+                finalFixName = currentFix.ident;
+                currentIdx--;
+            }
+
+            const remainingToTod = roundedTod - accumulatedBack;
+            const milesBefore = Math.max(0, remainingToTod + lastLegDistance).toFixed(1);
+            todGeoResult.textContent = `Or ${milesBefore} NM before ${finalFixName}, target being ${targetAlt}ft at ${selectedFix}`;
+            console.log('TOD geo result', { finalFixName, accumulatedBack, lastLegDistance, remainingToTod, milesBefore });
+        } else {
+            todGeoResult.textContent = "";
+            console.log('selected fix not found in simbriefNavlogDistances');
+        }
+    } else {
+        todGeoResult.textContent = selectedFix ? " (Import SimBrief for geo-location)" : "";
+        console.log('TOD geo-location unavailable', { selectedFix, hasSimbrief: simbriefNavlogDistances.length > 0, roundedTod });
+    }
+    console.groupEnd();
 }
 
 function calculateELW() {
@@ -1087,13 +1161,17 @@ function calculateVsPrediction() {
 
     const effectiveGs = rawGs + windComponent;
     const altToDescend = currentAlt - targetAlt;
-    
-    if (altToDescend <= 0 || dist <= 0 || effectiveGs <= 0) {
+
+    const altLossThousands = altToDescend / 1000;
+    const averageGsCorrection = (altLossThousands / 2) * 7;
+    const estimatedAvgGs = effectiveGs - averageGsCorrection;
+
+    if (altToDescend <= 0 || dist <= 0 || estimatedAvgGs <= 0) {
         vsRateResult.textContent = "0";
         return;
     }
 
-    const timeToTargetMinutes = (dist / effectiveGs) * 60;
+    const timeToTargetMinutes = (dist / estimatedAvgGs) * 60;
     const requiredVs = altToDescend / timeToTargetMinutes;
     vsRateResult.textContent = Math.round(requiredVs);
 }
@@ -1164,7 +1242,7 @@ legsChain.addEventListener('input', () => {
     } catch (e) { legsResult.textContent = '0'; }
 });
 
-[todCurrentAlt, todTargetAlt, todCurrentSpd, todTargetSpd, todHdg, todWdir, todWspd].forEach(i => i.addEventListener('input', calculateTOD));
+[todCurrentAlt, todTargetAlt, todCurrentSpd, todTargetSpd, todHdg, todWdir, todWspd, todTargetFix].forEach(i => i.addEventListener('input', calculateTOD));
 [elwGw, elwFob, elwDestEfob].forEach(i => i.addEventListener('input', calculateELW));
 [predCurrentAlt, predVs, predTargetAlt, predGs, predHdg, predWdir, predWspd].forEach(i => i.addEventListener('input', calculateDescentPrediction));
 [vsTargetAlt, vsDist, vsCurrentAlt, vsEstGs, vsHdg, vsWdir, vsWspd].forEach(i => i.addEventListener('input', calculateVsPrediction));
