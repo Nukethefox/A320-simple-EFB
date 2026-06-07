@@ -176,6 +176,186 @@
             background-color: var(--bg-input);
             border-color: var(--border-color);
         }
+
+        /* RESPONSIVE DESIGN FOR MOBILE */
+        @media (max-width: 768px) {
+            body {
+                padding: 8px;
+            }
+
+            .panel {
+                padding: 12px;
+                margin-top: 8px;
+            }
+
+            .panel-title {
+                font-size: 13px;
+                margin-bottom: 8px;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .panel-title div {
+                display: flex;
+                gap: 8px;
+                width: 100%;
+            }
+
+            .panel-title button {
+                flex: 1;
+                padding: 8px 6px !important;
+                font-size: 11px;
+            }
+
+            .grid-inputs {
+                grid-template-columns: 1fr !important;
+                gap: 8px;
+            }
+
+            input[type="text"], 
+            input[type="number"],
+            select {
+                padding: 10px !important;
+                font-size: 16px !important;
+                min-height: 44px;
+            }
+
+            .input-group label {
+                font-size: 12px;
+                margin-bottom: 6px;
+            }
+
+            .btn {
+                padding: 8px 10px !important;
+                font-size: 11px !important;
+                min-height: 36px;
+            }
+
+            #calculators-container {
+                grid-template-columns: 1fr !important;
+                gap: 8px;
+            }
+
+            .result-box {
+                margin-top: 12px;
+                padding: 8px;
+                font-size: 13px;
+            }
+
+            .result-value {
+                font-size: 16px;
+            }
+
+            .modal {
+                width: 90%;
+                max-width: 350px;
+                padding: 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 6px;
+            }
+
+            .panel {
+                padding: 10px;
+                margin-top: 6px;
+                border-radius: 4px;
+            }
+
+            .panel-title {
+                font-size: 12px;
+                margin-bottom: 6px;
+            }
+
+            .panel-title div {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                width: 100%;
+            }
+
+            .panel-title button {
+                width: 100%;
+                padding: 6px 4px !important;
+                font-size: 10px;
+            }
+
+            input[type="text"], 
+            input[type="number"],
+            select {
+                padding: 12px 8px !important;
+                font-size: 16px !important;
+                min-height: 48px;
+                border-radius: 3px;
+            }
+
+            .input-group label {
+                font-size: 11px;
+                margin-bottom: 4px;
+            }
+
+            .btn {
+                padding: 6px 8px !important;
+                font-size: 10px !important;
+                min-height: 40px;
+            }
+
+            .result-box {
+                margin-top: 10px;
+                padding: 8px;
+                font-size: 12px;
+                border-left-width: 3px;
+            }
+
+            .result-value {
+                font-size: 14px;
+            }
+
+            .accordion-section {
+                margin-top: 8px !important;
+            }
+
+            .modal {
+                width: 95%;
+                max-width: 280px;
+                padding: 12px;
+                border-radius: 4px;
+            }
+
+            .modal-actions {
+                margin-top: 12px;
+                gap: 8px;
+            }
+
+            #scratchpad-container {
+                padding-bottom: 8px;
+                margin-bottom: 8px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .grid-inputs {
+                grid-template-columns: 1fr !important;
+            }
+
+            #calculators-container {
+                grid-template-columns: 1fr !important;
+            }
+        }
+
+        @media (min-width: 769px) and (max-width: 1024px) {
+            #calculators-container {
+                grid-template-columns: repeat(2, 1fr) !important;
+            }
+        }
+
+        @media (min-width: 1025px) {
+            #calculators-container {
+                grid-template-columns: repeat(3, 1fr) !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -244,7 +424,7 @@
                         <div class="input-group"><label>TWR Freq</label><input type="text" id="dep-freq-twr"></div>
                         <div class="input-group"><label>DEP Freq</label><input type="text" id="dep-freq-dep"></div>
                     </div>
-                    <div class="grid-inputs" style="margin-top: 10px; grid-template-columns: 1fr 1fr;">
+                    <div class="grid-inputs" style="margin-top: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
                         <div class="input-group"><label>IFR Clearance</label><input type="text" id="dep-ifr-clearance"></div>
                         <div class="input-group"><label>Taxi Clearance</label><input type="text" id="dep-taxi-clearance"></div>
                     </div>
@@ -279,7 +459,7 @@
                         <div class="input-group"><label>Planned RWY</label><input type="text" id="arr-rwy"></div>
                         <div class="input-group"><label>Elevation (FT)</label><input type="text" id="arr-elevation"></div>
                     </div>
-                    <div class="grid-inputs" style="margin-top: 10px; grid-template-columns: 1fr 1fr 1fr;">
+                    <div class="grid-inputs" style="margin-top: 10px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
                         <div class="input-group"><label>Arr QNH</label><input type="number" id="arr-qnh" value="1013"></div>
                         <div class="input-group"><label>Trans Alt (FT) from siembrief</label><input type="number" id="arr-trans-alt-ref"></div>
                         <div class="input-group"><label style="color: var(--accent-amber);">Transition Level (if atc not available)</label><input type="text" id="arr-trans-level" readonly style="color: var(--accent-amber);"></div>
@@ -301,7 +481,7 @@
                         <div class="input-group"><label>Planned RWY</label><input type="text" id="alt-rwy"></div>
                         <div class="input-group"><label>Elevation (FT)</label><input type="text" id="alt-elevation"></div>
                     </div>
-                    <div class="grid-inputs" style="margin-top: 10px; grid-template-columns: 1fr 1fr 1fr;">
+                    <div class="grid-inputs" style="margin-top: 10px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
                         <div class="input-group"><label>Alt QNH</label><input type="number" id="alt-qnh" value="1013"></div>
                         <div class="input-group"><label>Trans Alt (FT) from simbrief</label><input type="number" id="alt-trans-alt-ref"></div>
                         <div class="input-group"><label style="color: var(--accent-amber);">Transition Level (if atc not available)</label><input type="text" id="alt-trans-level" readonly style="color: var(--accent-amber);"></div>
@@ -319,7 +499,7 @@
     <div id="calculators-container">
         <div class="panel calc-panel">
             <div class="panel-title">Top of Descent (TOD)</div>
-            <div class="grid-inputs" style="grid-template-columns: 1fr 1fr;">
+            <div class="grid-inputs" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
                 <div class="input-group">
                     <label>Current Altitude (FT)</label>
                     <input type="number" id="tod-current-alt" value="35000">
@@ -399,7 +579,7 @@
 
         <div class="panel calc-panel">
             <div class="panel-title">Time/distance Prediction during descend</div>
-            <div class="grid-inputs" style="grid-template-columns: 1fr 1fr;">
+            <div class="grid-inputs" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
                 <div class="input-group">
                     <label>Current Altitude (FT)</label>
                     <input type="number" id="pred-current-alt" value="25000">
@@ -417,7 +597,7 @@
                 </div>
             </div>
             <br>
-            <div class="grid-inputs" style="grid-template-columns: 1fr 1fr;">
+            <div class="grid-inputs" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
                 <div class="input-group">
                     <label>Initial Ground Speed (KT)</label>
                     <input type="number" id="pred-gs" value="320">
@@ -443,7 +623,7 @@
 
         <div class="panel calc-panel">
             <div class="panel-title">Required V/S Rate</div>
-            <div class="grid-inputs" style="grid-template-columns: 1fr 1fr;">
+            <div class="grid-inputs" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
                 <div class="input-group">
                     <label>Current Altitude (FT)</label>
                     <input type="number" id="vs-current-alt" value="25000">
@@ -481,7 +661,7 @@
 
         <div class="panel calc-panel">
             <div class="panel-title">Fuel Burn Prediction</div>
-            <div class="grid-inputs" style="grid-template-columns: 1fr 1fr;">
+            <div class="grid-inputs" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
                 <div class="input-group">
                     <label>Fuel Flow</label>
                     <input type="number" id="ff-rate" value="40">
@@ -513,7 +693,7 @@
             <div class="panel-title">Equitime Point (ETP)</div>
             <p style="font-size: 11px;color: var(--text-muted);">Distance and wind components are specified on SimBrief OFP</p>
             <br>
-            <div class="grid-inputs" style="grid-template-columns: 1fr 1fr;">
+            <div class="grid-inputs" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
                 <div class="input-group">
                     <label>Total Dist from DEPT to ARR (NM)</label>
                     <input type="number" id="etp-dist" value="400">
@@ -547,7 +727,7 @@
                 <datalist id="wp-list"></datalist>
             </div>
         </div>
-        <div id="wp-results" style="display: none; margin-top: 15px; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div id="wp-results" style="display: none; margin-top: 15px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
             <div class="result-box" style="margin-top: 0;">
                 Planned Elapsed Time: <span class="result-value" id="wp-time">00:00</span> hours
             </div>
